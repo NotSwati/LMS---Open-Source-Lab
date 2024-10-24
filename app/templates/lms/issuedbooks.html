@@ -21,7 +21,7 @@
       <th scope="col">ISBN</th>
       <th scope="col">username</th>
         <th scope="col">Issued On</th>
-                <th scope="col">Returned On</th>
+                <th scope="col">Return Due Date</th>
 
     </tr>
   </thead>
@@ -46,12 +46,17 @@
 
              <td>
 
-                 {% if record.actual_return_date %}
-                 {{ record.actual_return_date.strftime('%d-%m-%Y')  }}
+                 {% if record.to_be_returned_by_date %}
+                 {{ record.to_be_returned_by_date.strftime('%d-%m-%Y')  }}
               {% else %} - {% endif %}
 
 
              </td>
+     <td>
+         <form action="{{ url_for('lms.request_renewal', book_id=record.bookissuance.id) }}" method="POST">
+                    <button type="submit" class="btn btn-warning">Request Renewal</button>
+                </form>
+     </td>
 
 
     </tr>

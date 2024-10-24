@@ -12,6 +12,7 @@ from app.auth.forms import LoginForm, RegisterForm, UpdateForm
 from app.auth.models import User, Book, BookIssuanceTracker, BookIssuanceHistory
 from app import login_manager  # the variable from Flask-login
 from app.lms.forms import AddBookForm, IssueBookForm, RenewBookForm, SearchBookForm
+from app.lms.send_email import send_email
 
 lms_bp = Blueprint("lms", __name__)
 
@@ -111,7 +112,7 @@ def issuebook():
         bookissuance.bookissuance.availablenoofcopies -= 1  ## using backreference
         print("#############Available copy -1 ")
         bookissuance.issuance_date = datetime.now()
-        bookissuance.to_be_returned_by_date = datetime.now() + timedelta(days=7)
+        bookissuance.to_be_returned_by_date = datetime.now() + timedelta(days=14)
         db.session.add(bookissuance)
         db.session.commit()
 
@@ -139,9 +140,37 @@ def issuebook():
 
         flash("Book issued ")
         users = User.query.filter(and_(User.is_admin == False, User.is_active == True)).all()
+
+        # send Email for confirmation of book issue
+        due_date = bookissuance.issuance_date + timedelta(days=14)
+
+        send_email(
+            user_email=issued_to_user.email, book_title=book.title, issue_date=bookissuance.issuance_date, due_date=due_date
+        )
+
         return render_template(
             "lms/issuebook.html", books=Book.query.all(), users=users, form=form)
 
+
+@lms_bp.route("/request-renewal/<int:book_id>", methods=["GET", "POST"])
+@login_required
+def request_renewal(book_id):
+    """Handle renewal requests using book title and username."""
+    # Find the book by title (make sure titles are unique or adjust logic)
+    book = BookIssuanceTracker.query.filter(BookIssuanceTracker.id==book_id).first()
+
+    if book:
+        # Check if renewal has already been requested
+        if book.renewal_requested:
+            flash('Renewal already requested for this book.', 'warning')
+        else:
+            book.renewal_requested = True
+            db.session.commit()
+            flash('Renewal request submitted successfully!', 'success')
+    else:
+        flash('Book not found!', 'danger')
+
+    return redirect(url_for('lms.myissuedbookslist'))
 
 @lms_bp.route("/returnbook", methods=["GET", "POST"])
 @login_required
@@ -219,13 +248,14 @@ def renewbook():
     if request.method == 'GET':
         form = IssueBookForm(request.form)
         # list the books which are issued for renewal screen
-        booksissued = BookIssuanceTracker.query.filter(BookIssuanceTracker.issued_to != None).all()
+        requested_books = BookIssuanceTracker.query.filter(BookIssuanceTracker.renewal_requested == True).all()
+        #booksissued = BookIssuanceTracker.query.filter(BookIssuanceTracker.issued_to != None).all()
 
-        if booksissued:
-            return render_template("lms/renewbook.html", booksissued=booksissued, form=form)
+        if requested_books:
+            return render_template("lms/renewbook.html", booksissued=requested_books, form=form)
         flash("No Return Pending")
         return render_template(
-            "lms/renewbook.html", booksissued=booksissued, form=form)
+            "lms/renewbook.html", booksissued=requested_books, form=form)
 
     if request.method == 'POST':
         # issue book
@@ -242,11 +272,13 @@ def renewbook():
 
         # bookissuance.issuance_date = datetime.now()
         bookissuance.to_be_returned_by_date = newreturndate
+        bookissuance.renewal_requested = False
+
         db.session.add(bookissuance)
         db.session.commit()
 
         flash("Book Re-Issued")
-        booksissued = BookIssuanceTracker.query.filter(BookIssuanceTracker.issued_to != None).all()
+        booksissued = BookIssuanceTracker.query.filter(BookIssuanceTracker.renewal_requested == True).all()
 
         try:
             # using issuance date as part of filter to identify the record

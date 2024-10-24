@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import current_app
 
@@ -59,6 +59,7 @@ class Book(db.Model):
     totalnoofcopies = db.Column(db.Integer)
     availablenoofcopies = db.Column(db.Integer)
     entry_created_on = db.Column(db.DateTime, server_default=func.now())
+    #renewal_requested = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
         return '<Book {}>'.format(self.title)
@@ -89,6 +90,7 @@ class BookIssuanceTracker(db.Model):
     returnstatus = db.Column(db.Enum(ReturnStatus))
     entry_created_on = db.Column(db.DateTime, server_default=func.now())
     entry_updated_on = db.Column(db.DateTime, onupdate=func.now())
+    renewal_requested = db.Column(db.Boolean, default=False)
 
 
 class BookIssuanceHistory(db.Model):

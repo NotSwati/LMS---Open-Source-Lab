@@ -14,8 +14,6 @@ New Features - 29-04-2023
     Update user details/ Change Password
 4.  Librarian can also update user details and passwords from the list members menu
 5.  Only Normal members are listed in the book issue dropdown
-
-
 ------------------------------------------
 
 When Book is issued the " to be returned by date" is set to today + 7 days.
